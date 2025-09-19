@@ -15,6 +15,7 @@ X = df.drop(columns=[label_col]).values
 class_names = df[label_col].unique()
 class_to_int = {name: idx for idx, name in enumerate(class_names)}
 y = df['class'].map(class_to_int).values
+print()
 
 def train_and_evaluate(X, y, class_names, description):
     # Use all data for training (no split)
@@ -27,22 +28,57 @@ def train_and_evaluate(X, y, class_names, description):
 
     # Build the hyperplane equations as strings for multiclass
     hyperplanes = []
+    normalized_hyperplanes = []
     for class_idx, (coefs, intercept) in enumerate(zip(clf.coef_, clf.intercept_)):
-        terms = []
+        # Build original hyperplane equation
+        original_terms = []
         for idx, coef in enumerate(coefs):
             sign = '+' if coef >= 0 and idx > 0 else ''
-            terms.append(f"{sign}{coef:.4f}*{df.columns[idx]}")
-        hyperplane = f"y_{class_idx} = " + " ".join(terms)
+            original_terms.append(f"{sign}{coef:.4f}*{df.columns[idx]}")
+        original_hyperplane = f"y_{class_idx} = " + " ".join(original_terms)
         if intercept >= 0:
-            hyperplane += f" + {intercept:.4f}"
+            original_hyperplane += f" + {intercept:.4f}"
         else:
-            hyperplane += f" - {abs(intercept):.4f}"
-        hyperplanes.append(hyperplane)
+            original_hyperplane += f" - {abs(intercept):.4f}"
+        hyperplanes.append(original_hyperplane)
+        
+        # Check if any coefficients are negative
+        has_negative = np.any(coefs < 0)
+        
+        # Normalize coefficients based on whether they contain negative values
+        if has_negative:
+            # Normalize to [-1, 1] range
+            coef_min, coef_max = np.min(coefs), np.max(coefs)
+            if coef_max != coef_min:  # Avoid division by zero
+                normalized_coefs = 2 * ((coefs - coef_min) / (coef_max - coef_min)) - 1
+            else:
+                normalized_coefs = coefs
+        else:
+            # Normalize to [0, 1] range
+            coef_min, coef_max = np.min(coefs), np.max(coefs)
+            if coef_max != coef_min:  # Avoid division by zero
+                normalized_coefs = (coefs - coef_min) / (coef_max - coef_min)
+            else:
+                normalized_coefs = coefs
+        
+        # Build normalized hyperplane equation
+        normalized_terms = []
+        for idx, norm_coef in enumerate(normalized_coefs):
+            sign = '+' if norm_coef >= 0 and idx > 0 else ''
+            normalized_terms.append(f"{sign}{norm_coef:.4f}*{df.columns[idx]}")
+        normalized_hyperplane = f"y_{class_idx} = " + " ".join(normalized_terms)
+        if intercept >= 0:
+            normalized_hyperplane += f" + {intercept:.4f}"
+        else:
+            normalized_hyperplane += f" - {abs(intercept):.4f}"
+        normalized_hyperplanes.append(normalized_hyperplane)
 
-    print(f"\nResults for {description}:")
-    # Print the hyperplanes
-    for hyperplane in hyperplanes:
-        print(f"hyperplane for {class_names[hyperplanes.index(hyperplane)]}:", hyperplane)
+    print(f"Results for {description}:")
+    # Print the original and normalized hyperplanes
+    for i, (hyperplane, normalized_hyperplane) in enumerate(zip(hyperplanes, normalized_hyperplanes)):
+        print(f"Original hyperplane for {class_names[i]}:", hyperplane)
+        print(f"Normalized hyperplane for {class_names[i]}:", normalized_hyperplane)
+        print()
 
     # Use the hyperplanes to classify all data
     X_test = X
@@ -55,7 +91,7 @@ def train_and_evaluate(X, y, class_names, description):
     print("confusion matrix:\n", conf_matrix_df)
 
     # Print the accuracy
-    print("accuracy:", accuracy_score(y_test, y_test_pred), "=", round(accuracy_score(y_test, y_test_pred) * 100, 2), "%")
+    print("accuracy:", accuracy_score(y_test, y_test_pred), "=", str(round(accuracy_score(y_test, y_test_pred) * 100, 2)) + "%\n")
 
 # Test with original (not normalized) data
 train_and_evaluate(X, y, class_names, "original (not normalized) data")
