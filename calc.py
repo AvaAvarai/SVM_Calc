@@ -2,16 +2,17 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.svm import SVC
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 # Load the dataset
-df = pd.read_csv('datasets/iris.csv')
+df = pd.read_csv('datasets/wbc9.csv')
 
-# Extract features and labels
-X = df.drop(columns=['class']).values
+# Extract features and labels (case-insensitive for 'class' or 'label')
+label_col = next(col for col in df.columns if col.lower() in ['class', 'label'])
+X = df.drop(columns=[label_col]).values
 
 # Automatically detect class names and assign integer labels
-class_names = df['class'].unique()
+class_names = df[label_col].unique()
 class_to_int = {name: idx for idx, name in enumerate(class_names)}
 y = df['class'].map(class_to_int).values
 
@@ -54,7 +55,7 @@ def train_and_evaluate(X, y, class_names, description):
     print("confusion matrix:\n", conf_matrix_df)
 
     # Print the accuracy
-    print("accuracy:", accuracy_score(y_test, y_test_pred))
+    print("accuracy:", accuracy_score(y_test, y_test_pred), "=", round(accuracy_score(y_test, y_test_pred) * 100, 2), "%")
 
 # Test with original (not normalized) data
 train_and_evaluate(X, y, class_names, "original (not normalized) data")
@@ -63,3 +64,8 @@ train_and_evaluate(X, y, class_names, "original (not normalized) data")
 scaler = MinMaxScaler()
 X_norm = scaler.fit_transform(X)
 train_and_evaluate(X_norm, y, class_names, "min-max normalized data")
+
+# Test with z-score normalized data
+zscaler = StandardScaler()
+X_zscore = zscaler.fit_transform(X)
+train_and_evaluate(X_zscore, y, class_names, "z-score normalized data")
